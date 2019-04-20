@@ -2,16 +2,28 @@ import urllib.request
 import urllib.parse
 import ssl
 import datetime
-import time
 import json
 from datetime import timedelta
+from dateutil import parser
 
 
-def return_date(userdate=datetime.date.today(), delta=7):
-    fromdate = str(userdate.year) + "." + str(userdate.month) + "." + str(userdate.day)
-    delta = timedelta(days=delta)
-    sumdate = userdate + delta
-    todate = str(sumdate.year) + "." + str(sumdate.month) + "." + str(sumdate.day)
+def read_fromdate(date):
+    try:
+        return parser.parse(date)
+    except:
+        return datetime.date.today()
+
+
+def read_todate(date, fromdate):
+    try:
+        return parser.parse(date)
+    except:
+        return fromdate + timedelta(days=7)
+
+
+def return_date(fromdate, todate):
+    fromdate = str(fromdate.year) + "." + str("{:0>2d}".format(fromdate.month)) + "." + str("{:0>2d}".format(fromdate.day))
+    todate = str(todate.year) + "." + str("{:0>2d}".format(todate.month)) + "." + str("{:0>2d}".format(todate.day))
     return fromdate, todate
 
 
@@ -30,23 +42,40 @@ def find_person(surname, name, patronimic = ""):
     req = urllib.request.Request(url, headers={"User-Agent": user_agent})
     doc = urllib.request.urlopen(req, context=ctx)
     data = json.loads(doc.read().decode('utf8'))
-    return data[0]["id"]
-
-def url_timetable(fromdate, todate, groupo="9531"):
-    newurl = "https://www.hse.ru/api/timetable/lessons" + "?fromdate=" + fromdate + "&todate=" + todate + "&groupoid=" + groupo + "&receiverType=3"
-    return newurl
+    return str(data[0]["id"])
 
 
-def access_site(url):
+def url_timetable(studid, fromdate, todate, lang="1"):
+    url = "https://ruz.hse.ru/api/schedule/student/" + studid + "?start=" + fromdate + "&finish=" + todate + "&lng=" + lang
     user_agent = "Mozilla/5.0"
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
     req = urllib.request.Request(url, headers={"User-Agent": user_agent})
-    doc = urllib.request.urlopen(req)
-    time.sleep(3)
+    doc = urllib.request.urlopen(req, context=ctx)
     data = json.loads(doc.read().decode('utf8'))
     return data
 
 
+def read_timetable(data):
+    if len(data) == 0:
+        print("нет пар, отдыхай)")
+    else:
+        for para in data:
+            print(para["date"])
+            print(para["beginLesson"] + " - " + para["endLesson"])
+            print(para["discipline"])
+            print(para["auditorium"] + " - " + para["building"])
+            print(para["lecturer"])
+            print("------")
+            print("------")
+
+
 if __name__ == "__main__":
-    fromdate, todate = return_date()
-    tree = access_site(url_timetable(fromdate, todate))
+    fromdate = read_fromdate("")
+    todate = read_todate("", fromdate)
+    fromdate, todate = return_date(fromdate, todate)
+    studid = find_person("мазур", "екатерина", "сергеевна")
+    timetable = url_timetable(studid, fromdate, todate)
+    read_timetable(timetable)
 
